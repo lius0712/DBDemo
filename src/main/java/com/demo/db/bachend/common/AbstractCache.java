@@ -3,6 +3,8 @@ package com.demo.db.bachend.common;
 import com.demo.db.bachend.err.Error;
 
 import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -74,6 +76,47 @@ public abstract class AbstractCache<T> {
         refers.put(key, 1);
         lock.unlock();
         return obj;
+    }
+
+    /**
+     * 释放一个资源
+     * @param key
+     */
+    protected void release(long key) {
+        lock.lock();
+        try{
+            int ref = refers.get(key) - 1;
+            if(ref == 0) {
+                T obj = cache.get(key);
+                releaseKeyForCache(obj);
+                refers.remove(key);
+                cache.remove(key);
+                count--;
+            } else {
+                refers.put(key, ref);
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * 关闭缓存，释放所有资源
+     */
+    protected void close() {
+        lock.lock();
+        try {
+            for(Map.Entry<Long, T> entry : cache.entrySet()) {
+                Long key = entry.getKey();
+                T obj = entry.getValue();
+                releaseKeyForCache(obj);
+                refers.remove(key);
+                cache.remove(key);
+                count = 0;
+            }
+        } finally {
+            lock.unlock();
+        }
     }
     /**
      * 当资源不在缓存时的获取行为
