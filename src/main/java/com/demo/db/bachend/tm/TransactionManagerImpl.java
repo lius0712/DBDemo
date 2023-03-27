@@ -9,6 +9,7 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class TransactionManagerImpl implements TransactionManager{
     //存储事务信息头文件，代表事务的数量,占用8B
@@ -28,6 +29,12 @@ public class TransactionManagerImpl implements TransactionManager{
     private Lock counterLock;
     private RandomAccessFile file;
 
+    TransactionManagerImpl(RandomAccessFile f, FileChannel fc) {
+        this.file = f;
+        this.fc = fc;
+        counterLock = new ReentrantLock();
+        checkTIDCounter();
+    }
     /*
     检测tid文件是否合法
      */
@@ -92,38 +99,67 @@ public class TransactionManagerImpl implements TransactionManager{
             Panic.panic(e);
         }
     }
+    //开启一个事务
     @Override
     public long begin() {
-        return 0;
+        counterLock.lock();
+        try {
+            long tid = tidCounter + 1;
+            updateTID(tid, FIELD_TRAN_ACTIVE);
+            incrTIDCounter();
+            return tid;
+        } finally {
+            counterLock.unlock();
+        }
     }
-
+    //提交事务
     @Override
     public void commit(long tid) {
-
+        updateTID(tid, FIELD_TRAN_COMMITTED);
     }
-
+    //回滚事务
     @Override
     public void abort(long tid) {
+        updateTID(tid, FIELD_TRAN_ABORTED);
+    }
 
+    private boolean checkTID(long tid, byte status) {
+        long offset = getTidPosition(tid);
+        ByteBuffer buf = ByteBuffer.wrap(new byte[TID_FIELD_SIZE]);
+        try {
+            fc.position(offset);
+            fc.read(buf);
+        } catch (IOException e) {
+            Panic.panic(e);
+        }
+        return buf.array()[0] == status;
     }
 
     @Override
     public boolean isActive(long tid) {
-        return false;
+        if(tid == SUPER_TID) return false;
+        return checkTID(tid, FIELD_TRAN_ACTIVE);
     }
 
     @Override
     public boolean isCommitted(long tid) {
-        return false;
+        if(tid == SUPER_TID) return false;
+        return checkTID(tid, FIELD_TRAN_COMMITTED);
     }
 
     @Override
     public boolean isAborted(long tid) {
-        return false;
+        if(tid == SUPER_TID) return false;
+        return checkTID(tid, FIELD_TRAN_ABORTED);
     }
 
     @Override
     public void close() {
-
+        try {
+            fc.close();
+            file.close();
+        } catch (IOException e) {
+            Panic.panic(e);
+        }
     }
 }
