@@ -22,7 +22,7 @@ public class TransactionManagerImpl implements TransactionManager{
     private static final byte FIELD_TRAN_ABORTED  = 2;
     // 超级事务，永远为committed状态
     public static final long SUPER_TID = 0;
-    static final String XID_SUFFIX = ".tid";
+    static final String TID_SUFFIX = ".tid";
 
     private FileChannel fc;
     private long tidCounter;
