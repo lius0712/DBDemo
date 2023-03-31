@@ -3,6 +3,9 @@ package com.demo.db.bachend.utils;
 import java.nio.ByteBuffer;
 
 public class Parser {
+    public static byte[] short2Byte(short value) {
+        return ByteBuffer.allocate(Short.SIZE / Byte.SIZE).putShort(value).array();
+    }
     public static short parseShort(byte[] buf) {
         ByteBuffer buffer = ByteBuffer.wrap(buf, 0, 2);
         return buffer.getShort();

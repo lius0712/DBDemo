@@ -67,41 +67,67 @@ public class PageCacheImpl extends AbstractCache<Page> implements PageCache{
 
     @Override
     public Page getPage(int pageNum) throws Exception {
-        return null;
+        return get((long)pageNum);
     }
 
     @Override
     public void close() {
-
+        super.close();
+        try {
+            fc.close();
+            file.close();
+        } catch (IOException e) {
+            Panic.panic(e);
+        }
     }
     @Override
     public void release(Page page) {
-
+        release((long) page.getPageNumber());
     }
 
     @Override
     public void truncateByPgNum(int maxPgNum) {
-
+        long size = maxPgNum + 1;
+        try {
+            file.setLength(size);
+        } catch (IOException e) {
+            Panic.panic(e);
+        }
+        pageNums.set(maxPgNum);
     }
 
     @Override
     public int getPageNum() {
-        return 0;
+        return pageNums.intValue();
     }
 
     @Override
     public void flushPage(Page pg) {
-
+        flush(pg);
     }
 
     @Override
     protected Page getForCache(long key) throws Exception {
-        return null;
+       int pgNum = (int) key;
+       long offset = PageCacheImpl.pageOffSet(pgNum);
+       ByteBuffer buf = ByteBuffer.allocate(PAGE_SIZE);
+       fileLock.lock();
+       try {
+           fc.position(offset);
+           fc.read(buf);
+       } catch (IOException e) {
+           Panic.panic(e);
+       }
+       fileLock.unlock();
+       return new PageImpl(pgNum, buf.array(), this);
     }
 
     @Override
     protected void releaseKeyForCache(Page obj) {
-
+        if(obj.isDirty()) {
+            flush(obj);
+            obj.setDirty(false);
+        }
     }
 
     public static long pageOffSet(int pageNum) {
