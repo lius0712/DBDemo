@@ -14,6 +14,9 @@ public class Parser {
         ByteBuffer buffer = ByteBuffer.wrap(buf, 0, 4);
         return buffer.getInt();
     }
+    public static byte[] int2Byte(int value) {
+        return ByteBuffer.allocate(Integer.SIZE / Byte.SIZE).putInt(value).array();
+    }
 
     public static long parseLong(byte[] buf) {
         ByteBuffer buffer = ByteBuffer.wrap(buf, 0, 8);
